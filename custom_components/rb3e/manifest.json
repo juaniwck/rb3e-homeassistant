@@ -1,0 +1,13 @@
+{
+  "domain": "rb3e",
+  "name": "RB3Enhanced (Rock Band 3)",
+  "codeowners": ["@juaniwck"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/juaniwck/rb3e-homeassistant",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/juaniwck/rb3e-homeassistant/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

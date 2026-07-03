@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RB3Enhanced",
+        "description": "Listens for RB3Enhanced UDP event broadcasts. Make sure `EnableEvents = true` is set in your rb3.ini.",
+        "data": {
+          "port": "UDP port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "A listener on this port is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "RB3Enhanced options",
+        "data": {
+          "fire_events": "Fire rb3e_event on the Home Assistant event bus",
+          "light_driver_enabled": "Enable built-in Stage Kit light driver",
+          "lights_red": "Red channel lights",
+          "lights_green": "Green channel lights",
+          "lights_blue": "Blue channel lights",
+          "lights_yellow": "Yellow channel lights",
+          "lights_positions": "Positional lights (RGB, spread across the 8 LEDs)",
+          "lights_strobe": "Strobe lights",
+          "fog_entities": "Fog machine (switch/plug)",
+          "max_brightness": "Maximum brightness",
+          "min_update_interval_ms": "Minimum update interval per light",
+          "turn_off_in_menus": "Turn lights off when returning to menus"
+        },
+        "data_description": {
+          "lights_red": "Whole-ring lights: assign the same light to multiple colors to blend them.",
+          "lights_positions": "The 8 Stage Kit LED slots are spread across these lights; each shows the blend of all colors lit at its position. One light per slot gives an 8-wide bar; more colors mixing means richer per-position color.",
+          "min_update_interval_ms": "Raise this if your lights lag or drop commands (Hue: 200ms+, WLED: 50ms is fine)."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "game_state": { "name": "Game state", "state": { "menus": "Menus", "in_game": "In song" } },
+      "song_name": { "name": "Song" },
+      "song_artist": { "name": "Artist" },
+      "players": { "name": "Players" },
+      "stagekit": { "name": "Stage Kit" },
+      "screen": { "name": "Screen" },
+      "platform": { "name": "Platform" }
+    },
+    "binary_sensor": {
+      "in_song": { "name": "In song" },
+      "connected": { "name": "Connected" }
+    }
+  }
+}
