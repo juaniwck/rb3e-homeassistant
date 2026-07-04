@@ -82,7 +82,7 @@
           "wled_strobe_enabled": "Flashes the strip white at the real Stage Kit rates (6-12 Hz).",
           "wled_timeout_s": "Seconds without frames before WLED exits realtime mode and hands the strip back to its own effects or Hyperion.",
           "wled_min_interval_ms": "20 ms = up to 50 fps. Raise if your network or ESP struggles.",
-          "wled_custom_map": "Overrides the mapping mode. JSON object of color -> position (\"0\"-\"7\") -> list of LED indices, plus optional \"strobe\" list. Example: {\"red\": {\"0\": [0,1], \"1\": [2,3]}, \"strobe\": [0,1,2,3]}"
+          "wled_custom_map": "Overrides the mapping mode with explicit per-LED assignments. See the README for the JSON schema and an example."
         }
       }
     },
