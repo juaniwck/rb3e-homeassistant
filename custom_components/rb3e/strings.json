@@ -1,0 +1,139 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RB3Enhanced",
+        "description": "Listens for RB3Enhanced UDP event broadcasts. Make sure `EnableEvents = true` is set in your rb3.ini.",
+        "data": {
+          "port": "UDP port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "A listener on this port is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "RB3Enhanced options",
+        "menu_options": {
+          "general": "General (events, menu behavior)",
+          "ha_lights": "Smart light engine (Hue and other HA lights)",
+          "wled": "WLED engine (direct UDP, per-LED)"
+        }
+      },
+      "general": {
+        "title": "General",
+        "data": {
+          "fire_events": "Fire rb3e_event on the Home Assistant event bus",
+          "turn_off_in_menus": "Turn lights off when returning to menus"
+        },
+        "data_description": {
+          "turn_off_in_menus": "Applies to both light engines. For WLED this also releases the strip back to WLED/Hyperion."
+        }
+      },
+      "ha_lights": {
+        "title": "Smart light engine",
+        "description": "Drives Home Assistant light entities via service calls. Best for slower lights (Hue, LIFX, etc). For addressable strips running WLED, use the WLED engine instead.",
+        "data": {
+          "light_driver_enabled": "Enable smart light engine",
+          "lights_red": "Red channel lights",
+          "lights_green": "Green channel lights",
+          "lights_blue": "Blue channel lights",
+          "lights_yellow": "Yellow channel lights (mixed)",
+          "zones_red": "Red positional zones (ordered)",
+          "zones_green": "Green positional zones (ordered)",
+          "zones_blue": "Blue positional zones (ordered)",
+          "zones_yellow": "Yellow positional zones (ordered)",
+          "lights_strobe": "Strobe lights",
+          "fog_entities": "Fog machine (switch/plug)",
+          "max_brightness": "Maximum brightness",
+          "min_update_interval_ms": "Minimum update interval per light"
+        },
+        "data_description": {
+          "lights_red": "Mixed mode: whole-ring brightness on one light; the same light in multiple channels blends colors.",
+          "zones_red": "Positional mode: the ring's 8 LEDs are split across the entities in the order you add them — 8 entities (e.g. WLED segments) = 1 LED each, 4 = 2 each, 2 = 4 each. Works the same for the other colors; a segment listed under several colors blends them.",
+          "min_update_interval_ms": "Raise this if your lights lag or drop commands (Hue: 200ms+)."
+        }
+      },
+      "wled": {
+        "title": "WLED engine",
+        "description": "Streams per-LED frames straight to a WLED device over its UDP realtime protocol (no entities involved). The full Stage Kit state — 4 colors x 8 LED positions — is mapped across the strip. When a song ends, the strip is released so WLED effects or Hyperion take over automatically.",
+        "data": {
+          "wled_enabled": "Enable WLED engine",
+          "wled_host": "WLED host or IP",
+          "wled_port": "WLED UDP port",
+          "wled_led_count": "Number of LEDs",
+          "wled_led_start": "First LED index (offset)",
+          "wled_reverse": "Reverse direction",
+          "wled_mode": "Mapping mode",
+          "wled_max_brightness": "Maximum brightness",
+          "wled_strobe_enabled": "Strobe on this strip",
+          "wled_timeout_s": "Realtime timeout",
+          "wled_min_interval_ms": "Minimum frame interval",
+          "wled_custom_map": "Custom LED map (JSON, optional)"
+        },
+        "data_description": {
+          "wled_host": "The WLED device's hostname or IP. Make sure 'Receive UDP realtime' is enabled in WLED (Sync settings, on by default).",
+          "wled_port": "WLED realtime UDP port (default 21324).",
+          "wled_led_start": "Use count + offset to drive only part of a strip.",
+          "wled_mode": "Blend: strip split into 8 position segments, simultaneous colors blend additively. Interleave: each segment splits into red/green/blue/yellow lanes like the physical Stage Kit pod.",
+          "wled_strobe_enabled": "Flashes the strip white at the real Stage Kit rates (6-12 Hz).",
+          "wled_timeout_s": "Seconds without frames before WLED exits realtime mode and hands the strip back to its own effects or Hyperion.",
+          "wled_min_interval_ms": "20 ms = up to 50 fps. Raise if your network or ESP struggles.",
+          "wled_custom_map": "Overrides the mapping mode. JSON object of color -> position (\"0\"-\"7\") -> list of LED indices, plus optional \"strobe\" list. Example: {\"red\": {\"0\": [0,1], \"1\": [2,3]}, \"strobe\": [0,1,2,3]}"
+        }
+      }
+    },
+    "error": {
+      "wled_host_required": "Enter the WLED host or IP to enable the WLED engine.",
+      "invalid_custom_map": "Custom map must be a valid JSON object."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "game_state": {
+        "name": "Game state",
+        "state": {
+          "menus": "Menus",
+          "in_game": "In song"
+        }
+      },
+      "song_name": {
+        "name": "Song"
+      },
+      "song_artist": {
+        "name": "Artist"
+      },
+      "players": {
+        "name": "Players"
+      },
+      "stagekit": {
+        "name": "Stage Kit"
+      },
+      "screen": {
+        "name": "Screen"
+      },
+      "platform": {
+        "name": "Platform"
+      }
+    },
+    "binary_sensor": {
+      "in_song": {
+        "name": "In song"
+      },
+      "connected": {
+        "name": "Connected"
+      }
+    }
+  },
+  "selector": {
+    "wled_mode": {
+      "options": {
+        "blend": "Blend (8 segments, colors mixed)",
+        "interleave": "Interleave (8 segments x 4 color lanes)"
+      }
+    }
+  }
+}
