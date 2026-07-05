@@ -1,0 +1,10 @@
+RB3Enhanced for Home Assistant
+Copyright (C) 2026 juaniwck
+
+This program is free software licensed under the GNU General Public
+License version 3 (or, at your option, any later version). See the
+LICENSE file for the full text.
+
+Portions of the Stage Kit protocol constants were derived from
+StageKitPied (https://github.com/Blasteroids/StageKitPied), (C) Blasteroids,
+licensed under GPL-3.0.
