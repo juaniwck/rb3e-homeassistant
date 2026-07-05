@@ -44,6 +44,7 @@ from .const import (
     DEFAULT_WLED_MIN_INTERVAL_MS,
     DEFAULT_WLED_PORT,
     DEFAULT_WLED_TIMEOUT_S,
+    OPT_OFF_ON_SCORE_SCREENS,
     OPT_TURN_OFF_IN_MENUS,
     OPT_WLED_CUSTOM_MAP,
     OPT_WLED_HOST,
@@ -82,6 +83,11 @@ FLASH_S = 0.030
 
 STROBE_RGB = (255, 255, 255)
 
+# RB3 keeps game_state == in_game through the score screens and runs its own
+# light show there; screen names are the reliable end-of-song signal.
+SCORE_SCREEN_HINT = "endgame"
+GAMEPLAY_SCREEN = "game_screen"
+
 
 class _WledUdp(asyncio.DatagramProtocol):
     def error_received(self, exc: Exception) -> None:
@@ -111,6 +117,7 @@ class WledStageKitDriver:
         )
         self._strobe_enabled: bool = bool(options.get(OPT_WLED_STROBE_ENABLED, True))
         self._turn_off_in_menus: bool = bool(options.get(OPT_TURN_OFF_IN_MENUS, True))
+        self._off_on_score: bool = bool(options.get(OPT_OFF_ON_SCORE_SCREENS, True))
 
         # color -> position (0-7) -> list of strip indices (0-based, relative
         # to the whole WLED strip). Built once from the custom map or mode.
@@ -125,6 +132,8 @@ class WledStageKitDriver:
         self._dirty = False
         self._strobe_task: asyncio.Task | None = None
         self._active = False  # True while we own the strip (frames sent)
+        self._in_game = True
+        self._on_score_screen = False
 
     # ------------------------------------------------------------ mapping
 
@@ -221,8 +230,17 @@ class WledStageKitDriver:
 
     # -------------------------------------------------------------- events
 
+    def _cues_blocked(self) -> bool:
+        if self._turn_off_in_menus and not self._in_game:
+            return True
+        return self._off_on_score and self._on_score_screen
+
     def handle_stagekit(self, data: dict[str, Any]) -> None:
         command = data.get("command")
+        if self._cues_blocked():
+            if command == "disable_all":
+                self.all_off()
+            return
         if command == "led":
             self._masks[data["color"]] = data["mask"]
             self._mark_dirty()
@@ -234,8 +252,22 @@ class WledStageKitDriver:
         # fog mapping for that.
 
     def handle_game_state(self, in_game: bool) -> None:
-        if not in_game and self._turn_off_in_menus:
+        self._in_game = in_game
+        if in_game:
+            self._on_score_screen = False
+        elif self._turn_off_in_menus:
             self.all_off()
+
+    def handle_screen(self, name: str) -> None:
+        """Black out + release the strip on the endgame/score screens."""
+        name = (name or "").lower()
+        if SCORE_SCREEN_HINT in name:
+            if not self._on_score_screen:
+                self._on_score_screen = True
+                if self._off_on_score:
+                    self.all_off()
+        elif name == GAMEPLAY_SCREEN:
+            self._on_score_screen = False
 
     def all_off(self) -> None:
         """Black out and release the strip back to WLED/Hyperion."""

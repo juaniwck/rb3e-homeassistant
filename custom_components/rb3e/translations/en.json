@@ -27,10 +27,12 @@
         "title": "General",
         "data": {
           "fire_events": "Fire rb3e_event on the Home Assistant event bus",
-          "turn_off_in_menus": "Turn lights off when returning to menus"
+          "turn_off_in_menus": "Turn lights off when returning to menus",
+          "turn_off_on_score_screens": "Turn lights off when the song ends (skip the score-screen light show)"
         },
         "data_description": {
-          "turn_off_in_menus": "Applies to both light engines. For WLED this also releases the strip back to WLED/Hyperion."
+          "turn_off_in_menus": "Applies to both light engines. For WLED this also releases the strip back to WLED/Hyperion.",
+          "turn_off_on_score_screens": "Rock Band runs its own Stage Kit light show on the post-song score screens (game state still reads in-game there). Enabled: both engines black out the moment the score screen appears. Disabled: the score-screen show plays on your lights like a physical Stage Kit pod."
         }
       },
       "ha_lights": {

@@ -37,6 +37,7 @@ from .const import (
     OPT_LIGHTS_YELLOW,
     OPT_MAX_BRIGHTNESS,
     OPT_MIN_INTERVAL_MS,
+    OPT_OFF_ON_SCORE_SCREENS,
     OPT_TURN_OFF_IN_MENUS,
     OPT_ZONES_BLUE,
     OPT_ZONES_GREEN,
@@ -55,6 +56,17 @@ STROBE_HALF_PERIOD = {
     "fast": 0.22,
     "fastest": 0.15,
 }
+
+# After an all-off, re-send turn_off at these offsets (seconds) to catch
+# turn_on commands that were already queued in a slow bridge (Hue).
+OFF_REASSERT_DELAYS = (1.0, 3.0)
+
+# When a song finishes, RB3 keeps game_state == in_game through the score
+# screens and runs its own ~17s Stage Kit light show there. Every score
+# screen name contains this hint (endgame_waiting_screen, coop_endgame_screen,
+# endgame_advance_screen, ...); actual gameplay is game_screen.
+SCORE_SCREEN_HINT = "endgame"
+GAMEPLAY_SCREEN = "game_screen"
 
 COLOR_OPTS = {
     "red": OPT_LIGHTS_RED,
@@ -90,6 +102,9 @@ class StageKitLightDriver:
             int(options.get(OPT_MIN_INTERVAL_MS, DEFAULT_MIN_INTERVAL_MS)) / 1000.0
         )
         self._turn_off_in_menus: bool = bool(options.get(OPT_TURN_OFF_IN_MENUS, True))
+        self._off_on_score: bool = bool(
+            options.get(OPT_OFF_ON_SCORE_SCREENS, True)
+        )
 
         # Per-color zones: for each color ring, an ordered entity list. Each
         # entity gets a contiguous share of that ring's 8 LEDs (map 8 entities
@@ -112,6 +127,12 @@ class StageKitLightDriver:
         self._pending: dict[str, asyncio.TimerHandle] = {}
         self._strobe_task: asyncio.Task | None = None
         self._fog_on = False
+        # True until a game_state packet says otherwise, so cues still work
+        # if HA (re)starts mid-song.
+        self._in_game = True
+        # True while on an endgame/score screen (see SCORE_SCREEN_HINT).
+        self._on_score_screen = False
+        self._off_reasserts: list[asyncio.TimerHandle] = []
 
     @staticmethod
     def _slots_for(idx: int, n: int) -> list[int]:
@@ -148,6 +169,19 @@ class StageKitLightDriver:
         """Handle a decoded stagekit event dict from protocol.decode_stagekit."""
         command = data.get("command")
         _LOGGER.debug("Stage Kit cue: %s", data)
+        if self._cues_blocked():
+            # Dark at the menus and on the score screens: ignore anything
+            # that would relight the lights (late packets, the game's
+            # endgame light show) so automations own them until the next
+            # song. Fog-off is still honored so a fog machine is never
+            # left running.
+            if command == "fog":
+                self._set_fog(False)
+            elif command == "disable_all":
+                self.all_off()
+            return
+        if command in ("led", "strobe"):
+            self._cancel_off_reasserts()
         if command == "led":
             self._masks[data["color"]] = data["mask"]
             self._refresh_entities()
@@ -158,24 +192,98 @@ class StageKitLightDriver:
         elif command == "disable_all":
             self.all_off()
 
+    def _cues_blocked(self) -> bool:
+        """True when incoming light cues should be ignored."""
+        if self._turn_off_in_menus and not self._in_game:
+            return True
+        return self._off_on_score and self._on_score_screen
+
     def handle_game_state(self, in_game: bool) -> None:
-        """Optionally black out when returning to the menus."""
-        if not in_game and self._turn_off_in_menus:
+        """Track game state; optionally black out at the menus."""
+        self._in_game = in_game
+        if in_game:
+            # A new song is starting; any previous score screen is over.
+            self._on_score_screen = False
+        elif self._turn_off_in_menus:
             self.all_off()
 
+    def handle_screen(self, name: str) -> None:
+        """Track the shell screen; black out on the endgame/score screens.
+
+        The game keeps game_state == in_game during the score screens and
+        runs its own Stage Kit light show there, so screen names are the
+        only reliable end-of-song signal.
+        """
+        name = (name or "").lower()
+        if SCORE_SCREEN_HINT in name:
+            if not self._on_score_screen:
+                self._on_score_screen = True
+                if self._off_on_score:
+                    _LOGGER.debug("Score screen '%s': blacking out", name)
+                    self.all_off()
+        elif name == GAMEPLAY_SCREEN:
+            self._on_score_screen = False
+
     def all_off(self) -> None:
-        """Turn everything managed by the driver off."""
+        """Turn everything managed by the driver off, immediately.
+
+        An off must never wait behind the rate limiter: pending flush
+        timers are cancelled and turn_off is sent right away. Because slow
+        bridges (Hue) can still apply turn_on commands that were already in
+        flight *after* our off lands, the off is re-asserted a couple of
+        times shortly afterwards.
+        """
         for color in self._masks:
             self._masks[color] = 0
         self._set_strobe("off")
         self._set_fog(False)
-        self._refresh_entities(force_off=True)
+        for handle in self._pending.values():
+            handle.cancel()
+        self._pending.clear()
+        for entity_id in self._all_color_entities() | set(self._zone_slots):
+            self._last_state[entity_id] = (False, None, None)
+            self._flush(entity_id)
+        self._schedule_off_reasserts()
+
+    def _schedule_off_reasserts(self) -> None:
+        self._cancel_off_reasserts()
+        loop = self.hass.loop
+        self._off_reasserts = [
+            loop.call_later(delay, self._reassert_off)
+            for delay in OFF_REASSERT_DELAYS
+        ]
+
+    def _cancel_off_reasserts(self) -> None:
+        for handle in self._off_reasserts:
+            handle.cancel()
+        self._off_reasserts = []
+
+    def _reassert_off(self) -> None:
+        """Re-send off to sweep up in-flight turn_ons on slow bridges."""
+        if any(self._masks.values()) or self._strobe_task:
+            return  # something relit the lights on purpose; leave them be
+        entities = sorted(
+            self._all_color_entities()
+            | set(self._zone_slots)
+            | set(self._strobe_entities)
+        )
+        if not entities:
+            return
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                "light",
+                "turn_off",
+                {"entity_id": entities, "transition": 0},
+                blocking=False,
+            )
+        )
 
     async def async_shutdown(self) -> None:
         """Cancel timers and background tasks."""
         for handle in self._pending.values():
             handle.cancel()
         self._pending.clear()
+        self._cancel_off_reasserts()
         if self._strobe_task:
             self._strobe_task.cancel()
             self._strobe_task = None
@@ -276,9 +384,14 @@ class StageKitLightDriver:
                 self.hass.services.async_call("light", "turn_on", data, blocking=False)
             )
         else:
+            # transition=0: shut off instantly instead of the bulb's default
+            # fade; fading back up is left to user automations.
             self.hass.async_create_task(
                 self.hass.services.async_call(
-                    "light", "turn_off", {"entity_id": entity_id}, blocking=False
+                    "light",
+                    "turn_off",
+                    {"entity_id": entity_id, "transition": 0},
+                    blocking=False,
                 )
             )
 

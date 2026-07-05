@@ -165,6 +165,8 @@ class Rb3eHub:
                 driver.handle_stagekit(event.data)
             elif event.type == EVENT_STATE:
                 driver.handle_game_state(event.data["in_game"])
+            elif event.type == EVENT_SCREEN_NAME:
+                driver.handle_screen(event.data.get("value") or "")
 
         # Push the diagnostic stagekit sensor at most twice a second so the
         # user can confirm cues are arriving without flooding the state machine.

@@ -36,6 +36,7 @@ from .const import (
     OPT_LIGHTS_YELLOW,
     OPT_MAX_BRIGHTNESS,
     OPT_MIN_INTERVAL_MS,
+    OPT_OFF_ON_SCORE_SCREENS,
     OPT_TURN_OFF_IN_MENUS,
     OPT_WLED_CUSTOM_MAP,
     OPT_WLED_ENABLED,
@@ -152,6 +153,10 @@ class Rb3eOptionsFlow(OptionsFlow):
                 vol.Required(
                     OPT_TURN_OFF_IN_MENUS,
                     default=opts.get(OPT_TURN_OFF_IN_MENUS, True),
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    OPT_OFF_ON_SCORE_SCREENS,
+                    default=opts.get(OPT_OFF_ON_SCORE_SCREENS, True),
                 ): selector.BooleanSelector(),
             }
         )

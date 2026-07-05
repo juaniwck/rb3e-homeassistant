@@ -23,6 +23,9 @@ OPT_ZONES_YELLOW = "zones_yellow"
 OPT_MAX_BRIGHTNESS = "max_brightness"
 OPT_MIN_INTERVAL_MS = "min_update_interval_ms"
 OPT_TURN_OFF_IN_MENUS = "turn_off_in_menus"
+# Black out during the endgame/score screens instead of rendering the game's
+# built-in score-screen light show (game_state is still "in_game" there).
+OPT_OFF_ON_SCORE_SCREENS = "turn_off_on_score_screens"
 
 DEFAULT_MAX_BRIGHTNESS = 255
 DEFAULT_MIN_INTERVAL_MS = 100
